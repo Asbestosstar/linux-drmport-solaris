@@ -1,0 +1,58 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+# Per-program NVIDIA/Mesa render-offload wrapper for the Solaris port.
+set -eu
+
+GPU=${NVRUN_GPU:-1}
+ISOLATE=0
+
+usage()
+{
+    cat >&2 <<'USAGE'
+usage: nvrun [--gpu DRI_PRIME_SELECTOR] [--isolate] command [args...]
+
+Examples:
+  nvrun vulkaninfo
+  nvrun --isolate game
+  nvrun --gpu pci-0000_03_00_0 game
+
+--isolate appends '!' to DRI_PRIME so Mesa Vulkan exposes only the selected GPU.
+USAGE
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --gpu)
+            [ "$#" -ge 2 ] || { usage; exit 2; }
+            GPU=$2
+            shift 2
+            ;;
+        --isolate)
+            ISOLATE=1
+            shift
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+[ "$#" -gt 0 ] || { usage; exit 2; }
+
+if [ "$ISOLATE" -eq 1 ]; then
+    DRI_PRIME="${GPU}!"
+else
+    DRI_PRIME="$GPU"
+fi
+
+export DRI_PRIME
+export SOLARIS_RENDER_OFFLOAD=1
+exec "$@"
